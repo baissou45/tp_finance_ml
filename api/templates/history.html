@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historique des Prédictions | Tesla AI Predictor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="header-section text-center mb-4">
+                        <h1 class="main-title"><i class="bi bi-clock-history"></i> Historique des Prédictions</h1>
+                        <p class="subtitle">Suivez la performance de notre modèle AI à travers le temps</p>
+                    </div>
+                <div class="card main-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Performance du Modèle</h2>
+                        <a href="/" class="btn btn-outline-light"><i class="bi bi-house"></i> Retour à l'accueil</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="intro-text mb-4">
+                            <p>Visualisez et analysez l'historique complet des prédictions réalisées par notre modèle LSTM. Comparez les prix prédits avec les prix réels pour évaluer la précision.</p>
+                        </div>
+                        <div class="filter-section mb-4">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h4 class="mb-0"><i class="bi bi-funnel"></i> Options d'affichage</h4>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-md-end mt-3 mt-md-0">
+                                        <label for="accuracy-filter" class="me-2 mb-0">Filtrer par précision:</label>
+                                        <select id="accuracy-filter" class="form-select form-select-sm" style="width: 220px;">
+                                            <option value="all" selected>Toutes les prédictions</option>
+                                            <option value="high">Haute précision (>90%)</option>
+                                            <option value="medium">Précision moyenne (70-90%)</option>
+                                            <option value="low">Faible précision (<70%)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card chart-card mb-4">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h4 class="mb-0"><i class="bi bi-graph-up"></i> Évolution des Prédictions</h4>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary" id="toggle-accuracy" title="Afficher/Masquer la précision">
+                                        <i class="bi bi-bullseye"></i> Précision
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="history-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card data-card">
+                            <div class="card-header">
+                                <h4 class="mb-0"><i class="bi bi-table"></i> Détails des Prédictions</h4>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover prediction-table">
+                                        <thead>
+                                            <tr>
+                                                <th><i class="bi bi-calendar"></i> Date</th>
+                                                <th><i class="bi bi-graph-up"></i> Prix prédit</th>
+                                                <th><i class="bi bi-cash"></i> Prix réel</th>
+                                                <th><i class="bi bi-arrow-left-right"></i> Différence</th>
+                                                <th><i class="bi bi-bullseye"></i> Précision</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="history-table-body">
+                                            <!-- Les données seront insérées ici par JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="no-data" class="alert alert-info d-none mt-4">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="mb-1">Aucune donnée disponible</h5>
+                                    <p class="mb-0">Aucune prédiction n'a encore été effectuée. <a href="/" class="alert-link">Faire une première prédiction</a></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons mt-4 text-center">
+                            <a href="/" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Nouvelle prédiction
+                            </a>
+                        </div>
+                        
+                        <div class="footer mt-4 text-center">
+                            <p class="mb-0">&copy; 2025 Tesla AI Predictor | Propulsé par l'intelligence artificielle</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let historyChart; // Variable globale pour stocker l'instance du graphique
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Charger l'historique des prédictions
+            fetch('/prediction-history')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.predictions && data.predictions.length > 0) {
+                        historyChart = displayHistoryChart(data.predictions);
+                        displayHistoryTable(data.predictions);
+                        
+                        // Configurer le bouton de bascule de précision
+                        document.getElementById('toggle-accuracy').addEventListener('click', function() {
+                            toggleAccuracyDataset(historyChart);
+                        });
+                    } else {
+                        document.getElementById('no-data').classList.remove('d-none');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors du chargement de l\'historique:', error);
+                    document.getElementById('no-data').classList.remove('d-none');
+                    document.getElementById('no-data').textContent = 'Erreur lors du chargement de l\'historique.';
+                });
+        });
+        
+        // Fonction pour basculer l'affichage du dataset de précision
+        function toggleAccuracyDataset(chart) {
+            const accuracyDataset = chart.data.datasets[2]; // Le dataset de précision est à l'index 2
+            const meta = chart.getDatasetMeta(2);
+            meta.hidden = !meta.hidden;
+            
+            // Mettre à jour l'affichage de l'axe Y droit en fonction de la visibilité du dataset
+            chart.options.scales.y1.display = !meta.hidden;
+            
+            // Mettre à jour le bouton
+            const button = document.getElementById('toggle-accuracy');
+            if (meta.hidden) {
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-outline-primary');
+            } else {
+                button.classList.remove('btn-outline-primary');
+                button.classList.add('btn-primary');
+            }
+            
+            chart.update();
+        }
+        
+        function displayHistoryChart(predictions) {
+            const ctx = document.getElementById('history-chart').getContext('2d');
+            
+            // Trier les prédictions par date
+            predictions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            const labels = predictions.map(p => {
+                const date = new Date(p.date);
+                return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            });
+            
+            const predictedPrices = predictions.map(p => p.predicted_price);
+            const actualPrices = predictions.map(p => p.actual_price || null);
+            
+            // Calculer les différences pour le graphique de précision
+            const accuracyData = predictions.map(p => {
+                if (p.actual_price) {
+                    const diffPercent = Math.abs((p.predicted_price - p.actual_price) / p.actual_price * 100);
+                    return (100 - diffPercent).toFixed(2);
+                }
+                return null;
+            });
+            
+            // Créer un gradient pour le fond du graphique
+            const gradientPredicted = ctx.createLinearGradient(0, 0, 0, 400);
+            gradientPredicted.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+            gradientPredicted.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+            
+            const gradientActual = ctx.createLinearGradient(0, 0, 0, 400);
+            gradientActual.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+            gradientActual.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Prix prédit',
+                            data: predictedPrices,
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            backgroundColor: gradientPredicted,
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 7,
+                            pointHoverBackgroundColor: 'rgba(99, 102, 241, 1)',
+                            pointHoverBorderColor: '#fff',
+                            pointHoverBorderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Prix réel',
+                            data: actualPrices,
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            backgroundColor: gradientActual,
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 7,
+                            pointHoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+                            pointHoverBorderColor: '#fff',
+                            pointHoverBorderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Précision (%)',
+                            data: accuracyData,
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            yAxisID: 'y1',
+                            hidden: true // Masqué par défaut, peut être activé par l'utilisateur
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Prix ($)',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Précision (%)',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    size: 13
+                                }
+                            },
+                            onClick: function(e, legendItem, legend) {
+                                // Comportement par défaut de Chart.js pour afficher/masquer les datasets
+                                Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                                
+                                // Logique personnalisée pour le dataset de précision
+                                const index = legendItem.datasetIndex;
+                                const chart = legend.chart;
+                                
+                                if (index === 2) { // Dataset de précision
+                                    // Si on active le dataset de précision, on met à jour l'affichage de l'axe Y droit
+                                    chart.options.scales.y1.display = !chart.getDatasetMeta(2).hidden;
+                                    chart.update();
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#333',
+                            bodyColor: '#666',
+                            borderColor: 'rgba(200, 200, 200, 0.5)',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    
+                                    if (label === 'Prix prédit' || label === 'Prix réel') {
+                                        return label + ': $' + value.toFixed(2);
+                                    } else if (label === 'Précision (%)') {
+                                        return label + ': ' + value + '%';
+                                    }
+                                    return label + ': ' + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Ajouter une légende explicative sous le graphique
+            const chartContainer = document.querySelector('.chart-container');
+            const legendElement = document.createElement('div');
+            legendElement.className = 'chart-legend mt-3';
+            legendElement.innerHTML = `
+                <div class="d-flex justify-content-center align-items-center flex-wrap gap-3">
+                    <div class="legend-item">
+                        <i class="bi bi-info-circle"></i> Cliquez sur les éléments de la légende pour afficher/masquer les données
+                    </div>
+                </div>
+            `;
+            chartContainer.appendChild(legendElement);
+        }
+        
+        function displayHistoryTable(predictions) {
+            const tableBody = document.getElementById('history-table-body');
+            tableBody.innerHTML = '';
+            
+            // Trier les prédictions par date (les plus récentes d'abord)
+            predictions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // Ajouter l'événement de filtre
+            document.getElementById('accuracy-filter').addEventListener('change', function() {
+                filterPredictions(predictions, this.value);
+            });
+            
+            // Afficher toutes les prédictions par défaut
+            filterPredictions(predictions, 'all');
+        }
+        
+        function filterPredictions(predictions, filterValue) {
+            const tableBody = document.getElementById('history-table-body');
+            tableBody.innerHTML = '';
+            
+            predictions.forEach(prediction => {
+                // Calculer la précision si le prix réel est disponible
+                let difference = '-';
+                let accuracy = '-';
+                let accuracyClass = '';
+                let accuracyValue = 0;
+                let showRow = true;
+                
+                if (prediction.actual_price) {
+                    difference = (prediction.actual_price - prediction.predicted_price).toFixed(2);
+                    const diffPercent = Math.abs(difference / prediction.actual_price * 100).toFixed(2);
+                    accuracyValue = (100 - parseFloat(diffPercent));
+                    accuracy = accuracyValue.toFixed(2) + '%';
+                    
+                    // Ajouter une classe en fonction de la précision
+                    if (accuracyValue >= 90) {
+                        accuracyClass = 'text-success';
+                    } else if (accuracyValue >= 70) {
+                        accuracyClass = 'text-warning';
+                    } else {
+                        accuracyClass = 'text-danger';
+                    }
+                    
+                    // Filtrer en fonction de la valeur sélectionnée
+                    if (filterValue === 'high' && accuracyValue < 90) {
+                        showRow = false;
+                    } else if (filterValue === 'medium' && (accuracyValue < 70 || accuracyValue >= 90)) {
+                        showRow = false;
+                    } else if (filterValue === 'low' && accuracyValue >= 70) {
+                        showRow = false;
+                    }
+                } else {
+                    // Pour les prédictions sans prix réel
+                    if (filterValue !== 'all') {
+                        showRow = false;
+                    }
+                }
+                
+                if (showRow) {
+                    // Formater la date
+                    const date = new Date(prediction.date);
+                    const formattedDate = date.toLocaleDateString('fr-FR', { 
+                        day: '2-digit', 
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                    
+                    const row = document.createElement('tr');
+                    
+                    // Construire la ligne du tableau avec des badges et des icônes
+                    row.innerHTML = `
+                        <td>${formattedDate}</td>
+                        <td>$${prediction.predicted_price.toFixed(2)}</td>
+                        <td>${prediction.actual_price ? '$' + prediction.actual_price.toFixed(2) : '<span class="badge bg-secondary">En attente</span>'}</td>
+                        <td>${difference !== '-' ? (parseFloat(difference) >= 0 ? '<span class="text-success">+$' + difference + '</span>' : '<span class="text-danger">-$' + Math.abs(parseFloat(difference)).toFixed(2) + '</span>') : '-'}</td>
+                        <td>
+                            ${accuracy !== '-' ? 
+                                `<div class="accuracy-badge ${accuracyClass}">
+                                    <i class="bi ${accuracyValue >= 90 ? 'bi-check-circle-fill' : accuracyValue >= 70 ? 'bi-dash-circle-fill' : 'bi-x-circle-fill'}"></i> 
+                                    ${accuracy}
+                                </div>` : 
+                                '<span class="badge bg-secondary">En attente</span>'}
+                        </td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                }
+            });
+            
+            // Afficher un message si aucune prédiction ne correspond au filtre
+            if (tableBody.children.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `<td colspan="5" class="text-center py-4">Aucune prédiction ne correspond au filtre sélectionné</td>`;
+                tableBody.appendChild(emptyRow);
+            }
+        }
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Animation de particules en arrière-plan -->
+    <div id="particles-js" class="particles-container"></div>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            particlesJS("particles-js", {
+                "particles": {
+                    "number": {
+                        "value": 80,
+                        "density": {
+                            "enable": true,
+                            "value_area": 800
+                        }
+                    },
+                    "color": {
+                        "value": "#6366f1"
+                    },
+                    "shape": {
+                        "type": "circle",
+                        "stroke": {
+                            "width": 0,
+                            "color": "#000000"
+                        },
+                    },
+                    "opacity": {
+                        "value": 0.3,
+                        "random": false,
+                    },
+                    "size": {
+                        "value": 3,
+                        "random": true,
+                    },
+                    "line_linked": {
+                        "enable": true,
+                        "distance": 150,
+                        "color": "#6366f1",
+                        "opacity": 0.2,
+                        "width": 1
+                    },
+                    "move": {
+                        "enable": true,
+                        "speed": 1,
+                        "direction": "none",
+                        "random": false,
+                        "straight": false,
+                        "out_mode": "out",
+                        "bounce": false,
+                    }
+                },
+                "interactivity": {
+                    "detect_on": "canvas",
+                    "events": {
+                        "onhover": {
+                            "enable": true,
+                            "mode": "grab"
+                        },
+                        "onclick": {
+                            "enable": true,
+                            "mode": "push"
+                        },
+                        "resize": true
+                    },
+                    "modes": {
+                        "grab": {
+                            "distance": 140,
+                            "line_linked": {
+                                "opacity": 0.8
+                            }
+                        },
+                        "push": {
+                            "particles_nb": 4
+                        }
+                    }
+                },
+                "retina_detect": true
+            });
+        });
+    </script>
+</body>
+</html>
