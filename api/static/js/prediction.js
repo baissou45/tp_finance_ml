@@ -18,11 +18,11 @@ function loadModelInfo() {
     fetch('/model-info')
         .then(response => response.json())
         .then(data => {
-            document.getElementById('model-type').textContent = data.model_type;
-            document.getElementById('training-end-date').textContent = data.training_end_date;
-            document.getElementById('lookback-period').textContent = data.lookback_period;
-            document.getElementById('r2-score').textContent = data.performance.test_r2;
-            document.getElementById('rmse-score').textContent = data.performance.test_rmse;
+            document.getElementById('model-type').textContent = data.tesla.model_type;
+            document.getElementById('training-end-date').textContent = data.tesla.training_end_date;
+            document.getElementById('lookback-period').textContent = data.tesla.lookback_period;
+            document.getElementById('r2-score').textContent = data.tesla.performance.test_r2;
+            document.getElementById('rmse-score').textContent = data.tesla.performance.test_rmse;
         })
         .catch(error => {
             console.error('Erreur lors du chargement des informations du modèle:', error);

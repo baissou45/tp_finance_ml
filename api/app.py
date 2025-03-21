@@ -31,7 +31,7 @@ HISTORY_FILE = 'prediction_history.json'
 BTC_HISTORY_FILE = 'btc_prediction_history.json'
 
 # Date de fin d'entraînement (à définir selon votre modèle)
-# Supposons que le modèle a été entraîné jusqu'au 31/12/2023
+# Le modèle a été entraîné jusqu'au 15/03/2025
 TRAINING_END_DATE = datetime(2025, 3, 15).date()
 
 def get_last_training_sequence():
